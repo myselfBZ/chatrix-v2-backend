@@ -63,7 +63,7 @@ const getMessagesByConversationID = `-- name: GetMessagesByConversationID :many
 SELECT id, conversation_id, sender_id, content, is_read, created_at
 FROM messages
 WHERE conversation_id = $1 
-ORDER BY created_at DESC
+ORDER BY created_at ASC
 LIMIT $2 OFFSET $3
 `
 
