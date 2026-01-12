@@ -1,0 +1,1 @@
+DROPT TABLE IF EXISTS users;
