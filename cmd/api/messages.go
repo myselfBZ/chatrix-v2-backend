@@ -1,15 +1,19 @@
 package main
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 const (
-	WELCOME         = "WELCOME"
-	ERR             = "ERR"
-	SET_NAME        = "SET_NAME"
-	CHAT            = "CHAT"
-	ONLINE_PRESENCE = "ONLINE_PRESENCE"
-	OFFLINE_STATUS  = "OFFLINE_STATUS"
-	CLIENT_CONN     = "CLIENT_CONN"
+	AKC_MSG_DELIVERED = "ACK_MSG_DELIVERED"
+	WELCOME           = "WELCOME"
+	ERR               = "ERR"
+	SET_NAME          = "SET_NAME"
+	CHAT              = "CHAT"
+	ONLINE_PRESENCE   = "ONLINE_PRESENCE"
+	OFFLINE_STATUS    = "OFFLINE_STATUS"
+	CLIENT_CONN       = "CLIENT_CONN"
 )
 
 type Message interface {
@@ -29,10 +33,14 @@ type InitialServerMsg struct {
 func (m *InitialServerMsg) message() {}
 
 type ChatMsg struct {
+	// User ids
 	To   string `json:"to"`
 	From string `json:"from"`
 
-	Content string `json:"content"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	TempID    string    `json:"temp_id"`
+	ID        uuid.UUID `json:"id"`
 }
 
 func (m *ChatMsg) message() {}
@@ -73,3 +81,12 @@ type OfflineStatus struct {
 }
 
 func (m *OfflineStatus) message() {}
+
+type AcknowledgementMsgDelivered struct {
+	RecieverID string    `json:"reciever_id"`
+	TempID     string    `json:"temp_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+}
+
+func (m *AcknowledgementMsgDelivered) message() {}

@@ -14,9 +14,9 @@ import (
 	"github.com/olahol/melody"
 )
 
-const(
+const (
 	userIDSessionKey = "user_id"
-	authSessionKey = "authenticated"
+	authSessionKey   = "authenticated"
 )
 
 type authPayload struct {
@@ -24,7 +24,6 @@ type authPayload struct {
 		Token string `json:"token"`
 	} `json:"message"`
 }
-
 
 func (a *api) handleDisconnect(s *melody.Session) {
 	userID, ok := s.Get(userIDSessionKey)
@@ -40,11 +39,11 @@ func (a *api) handleDisconnect(s *melody.Session) {
 
 func (a *api) handleConnect(s *melody.Session) {
 	go func() {
-        time.Sleep(5 * time.Second)
-        if !a.isSessionAuthenticated(s) {
-            s.WebsocketConnection().Close() 
-        }
-    }()
+		time.Sleep(5 * time.Second)
+		if !a.isSessionAuthenticated(s) {
+			s.WebsocketConnection().Close()
+		}
+	}()
 }
 
 func (a *api) handleMessage(s *melody.Session, msg []byte) {
@@ -60,7 +59,7 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 				MsgType: ERR,
 				Message: &Err{
 					Reason: "we couldn't authenticate you",
-					Code: http.StatusUnauthorized,
+					Code:   http.StatusUnauthorized,
 				},
 			})
 			s.CloseWithMsg(jsonErr)
@@ -69,8 +68,8 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 		s.Set(userIDSessionKey, user.ID.String())
 		s.Set(authSessionKey, true)
 
-		a.clients.Store(user.ID.String(), s) 
-		welcome, _  := json.Marshal(Wrapper{
+		a.clients.Store(user.ID.String(), s)
+		welcome, _ := json.Marshal(Wrapper{
 			MsgType: WELCOME,
 			Message: &Welcome{},
 		})
@@ -96,13 +95,11 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 		return
 	}
 
-
-	
 	fromUUID, err := uuid.Parse(chatMsg.From)
 
 	if err != nil {
 		// TODO: do something with the error
-		return 
+		return
 	}
 
 	toUUID, err := uuid.Parse(chatMsg.To)
@@ -112,11 +109,10 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 		return
 	}
 
-
-	_, err = a.storage.Messages.Create(context.TODO(), queries.CreateMessageParams{
+	dbMsg, err := a.storage.Messages.Create(context.TODO(), queries.CreateMessageParams{
 		SenderID: fromUUID,
-		User2: toUUID,
-		Content: chatMsg.Content,
+		User2:    toUUID,
+		Content:  chatMsg.Content,
 	})
 
 
@@ -132,6 +128,19 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 		})
 	}
 
+	go writeJSONMsg(s, Wrapper{
+		MsgType: AKC_MSG_DELIVERED,
+		Message: &AcknowledgementMsgDelivered{
+			RecieverID: chatMsg.To,
+			CreatedAt: dbMsg.CreatedAt.Time,
+			TempID:    chatMsg.TempID,
+			ID:        dbMsg.ID.String(),
+		},
+	})
+
+	chatMsg.CreatedAt = dbMsg.CreatedAt.Time
+	chatMsg.ID = dbMsg.ID
+
 	targetUser, ok := a.clients.Load(chatMsg.To)
 	if !ok {
 		return
@@ -139,7 +148,10 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 
 	session := targetUser.(*melody.Session)
 
-	session.Write(msg)
+	writeJSONMsg(session, Wrapper{
+		MsgType: CHAT,
+		Message: chatMsg,
+	})
 }
 
 func (a *api) handleWebSocket(c echo.Context) error {
@@ -187,7 +199,7 @@ func (a *api) authenticateSession(msg []byte) (queries.User, error) {
 	if err != nil {
 		return queries.User{}, err
 	}
-	
+
 	return user, nil
 }
 
@@ -200,7 +212,6 @@ func (a *api) isSessionAuthenticated(s *melody.Session) bool {
 	authenticated, ok := isAuth.(bool)
 	return ok && authenticated
 }
-
 
 func writeJSONMsg(s *melody.Session, payload Wrapper) error {
 	jsonData, _ := json.Marshal(payload)
