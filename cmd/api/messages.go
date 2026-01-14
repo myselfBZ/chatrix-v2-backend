@@ -1,20 +1,28 @@
 package main
 
 import (
-	"github.com/google/uuid"
+	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
 	AKC_MSG_DELIVERED = "ACK_MSG_DELIVERED"
 	WELCOME           = "WELCOME"
 	ERR               = "ERR"
-	SET_NAME          = "SET_NAME"
 	CHAT              = "CHAT"
 	ONLINE_PRESENCE   = "ONLINE_PRESENCE"
 	OFFLINE_STATUS    = "OFFLINE_STATUS"
+	MARK_READ         = "MARK_READ"
+	MSG_READ          = "MSG_READ"
 	CLIENT_CONN       = "CLIENT_CONN"
 )
+
+type IncomingEvent struct {
+	MsgType string          `json:"type"`
+	Message json.RawMessage `json:"message"`
+}
 
 type Message interface {
 	message()
@@ -90,3 +98,17 @@ type AcknowledgementMsgDelivered struct {
 }
 
 func (m *AcknowledgementMsgDelivered) message() {}
+
+type MarkMsgRead struct {
+	ConversationID string `json:"conversation_id"`
+	MsgOwnerID     string `json:"msg_owner_id"`
+}
+
+func (m *MarkMsgRead) message() {}
+
+type MsgRead struct {
+	ConversationID string      `json:"conversation_id"`
+	MessageIDs     []uuid.UUID `json:"message_ids"`
+}
+
+func (m *MsgRead) message() {}

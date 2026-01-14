@@ -1,5 +1,6 @@
 -- name: GetConversationsByUserID :many
 SELECT 
+    conversations.id AS conversation_id,
     users.id, 
     users.last_seen, 
     users.username

@@ -23,13 +23,13 @@ WHERE conversation_id = $1
 ORDER BY created_at ASC
 LIMIT $2 OFFSET $3;
 
--- name: MarkMessagesAsRead :exec
+-- name: MarkMessagesAsRead :many
 -- Marks all messages sent FROM the contact TO the current user as read
 UPDATE messages
 SET is_read = TRUE
 WHERE sender_id = $1 
   AND conversation_id = $2 
-  AND is_read = FALSE;
+  AND is_read = FALSE RETURNING id;
 
 -- name: DeleteMessage :exec
 DELETE FROM messages

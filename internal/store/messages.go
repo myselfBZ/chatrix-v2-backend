@@ -31,9 +31,9 @@ func (s *MessageStore) GetByConversationID(ctx context.Context, arg queries.GetM
 	return msgs, nil
 }
 
-func (s *MessageStore) MarkAsRead(ctx context.Context, arg queries.MarkMessagesAsReadParams) error {
-	err := s.q.MarkMessagesAsRead(ctx, arg)
-	return mapError(err)
+func (s *MessageStore) MarkAsRead(ctx context.Context, arg queries.MarkMessagesAsReadParams) ([]uuid.UUID, error) {
+	msgIds, err := s.q.MarkMessagesAsRead(ctx, arg)
+	return msgIds, mapError(err)
 }
 
 func (s *MessageStore) Delete(ctx context.Context, id uuid.UUID) error {

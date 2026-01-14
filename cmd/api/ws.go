@@ -78,70 +78,137 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 		return
 	}
 
-	// TODO: this not always a chat message
-	payload := Wrapper{
-		Message: &ChatMsg{},
-	}
-
-	if err := json.Unmarshal(msg, &payload); err != nil {
-		// TODO: do something with the error
+	var event IncomingEvent
+	if err := json.Unmarshal(msg, &event); err != nil {
+		writeJSONErr(s, Err{
+			Reason: "invalid payload",
+			Code: http.StatusUnprocessableEntity,
+		})
 		return
 	}
 
-	chatMsg, ok := payload.Message.(*ChatMsg)
+	a.mapIncomingEventToHandler(s, &event)
+}
 
+
+func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent) {
+	switch event.MsgType {
+	case CHAT:
+		var payload ChatMsg
+		if err := json.Unmarshal(event.Message, &payload); err != nil {
+			writeJSONErr(s, Err{
+				Reason: "invalid payload",
+				Code: http.StatusUnprocessableEntity,
+			})
+			return
+		}
+
+		a.handleChatMessage(s, &payload)
+	case MARK_READ:
+		var payload MarkMsgRead
+
+		if err := json.Unmarshal(event.Message, &payload); err != nil {
+			writeJSONErr(s, Err{
+				Reason: "invalid payload",
+				Code: http.StatusUnprocessableEntity,
+			})
+		}
+
+
+		a.handleMarkMsgRead(s, &payload)
+	}
+}
+
+
+func (a *api) handleMarkMsgRead(s *melody.Session, msg *MarkMsgRead) {
+	conversationID, err := uuid.Parse(msg.ConversationID)
+	if err != nil {
+		return
+	}
+
+	ownerID, err := uuid.Parse(msg.MsgOwnerID)
+	if err != nil {
+		return
+	}
+	msgIds ,err := a.storage.Messages.MarkAsRead(context.TODO(), queries.MarkMessagesAsReadParams{
+		ConversationID: conversationID,
+		SenderID: ownerID,
+	}) 
+
+	if err != nil {
+		return
+	}
+
+	sessoinAny, ok := a.clients.Load(ownerID.String())
 	if !ok {
-		// TODO:  violation, do something with it
 		return
 	}
 
-	fromUUID, err := uuid.Parse(chatMsg.From)
+	session := sessoinAny.(*melody.Session)
+
+	writeJSONMsg(session, Wrapper{
+		MsgType: MSG_READ,
+		Message: &MsgRead{
+			ConversationID: msg.ConversationID,
+			MessageIDs: msgIds,
+		},
+	})
+}
+
+
+
+func (a *api) handleChatMessage(s *melody.Session, msg *ChatMsg) {
+	fromUUID, err := uuid.Parse(msg.From)
 
 	if err != nil {
 		// TODO: do something with the error
 		return
 	}
 
-	toUUID, err := uuid.Parse(chatMsg.To)
+	toUUID, err := uuid.Parse(msg.To)
 
 	if err != nil {
 		// TODO: do something with the error
+		writeJSONErr(s, Err{
+			Reason: "invalid UUID",
+			Code: http.StatusUnprocessableEntity,
+		})
 		return
 	}
 
 	dbMsg, err := a.storage.Messages.Create(context.TODO(), queries.CreateMessageParams{
 		SenderID: fromUUID,
 		User2:    toUUID,
-		Content:  chatMsg.Content,
+		Content:  msg.Content,
 	})
-
 
 	if err != nil {
 		// TODO
-		writeJSONMsg(s, Wrapper{
-			MsgType: ERR,
-			Message: &Err{
+		writeJSONErr(s, 
+			Err{
 				Reason: "message couldn't be created",
 				// this is not suitable..... but uhm it is okay
 				Code: http.StatusBadRequest,
 			},
+		)
+		return
+	} else {
+		go writeJSONMsg(s, Wrapper{
+			MsgType: AKC_MSG_DELIVERED,
+			Message: &AcknowledgementMsgDelivered{
+				RecieverID: msg.To,
+				CreatedAt: dbMsg.CreatedAt.Time,
+				TempID:    msg.TempID,
+				ID:        dbMsg.ID.String(),
+			},
 		})
 	}
 
-	go writeJSONMsg(s, Wrapper{
-		MsgType: AKC_MSG_DELIVERED,
-		Message: &AcknowledgementMsgDelivered{
-			RecieverID: chatMsg.To,
-			CreatedAt: dbMsg.CreatedAt.Time,
-			TempID:    chatMsg.TempID,
-			ID:        dbMsg.ID.String(),
-		},
-	})
 
-	chatMsg.CreatedAt = dbMsg.CreatedAt.Time
-	chatMsg.ID = dbMsg.ID
+	msg.CreatedAt = dbMsg.CreatedAt.Time
+	msg.ID = dbMsg.ID
 
-	targetUser, ok := a.clients.Load(chatMsg.To)
+	targetUser, ok := a.clients.Load(msg.To)
 	if !ok {
 		return
 	}
@@ -150,7 +217,7 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 
 	writeJSONMsg(session, Wrapper{
 		MsgType: CHAT,
-		Message: chatMsg,
+		Message: msg,
 	})
 }
 
@@ -217,4 +284,11 @@ func writeJSONMsg(s *melody.Session, payload Wrapper) error {
 	jsonData, _ := json.Marshal(payload)
 
 	return s.Write(jsonData)
+}
+
+func writeJSONErr(s *melody.Session, err Err) error {
+	return writeJSONMsg(s, Wrapper{
+		MsgType: ERR,
+		Message: &err,
+	})
 }

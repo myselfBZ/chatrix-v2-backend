@@ -101,12 +101,12 @@ func (q *Queries) GetMessagesByConversationID(ctx context.Context, arg GetMessag
 	return items, nil
 }
 
-const markMessagesAsRead = `-- name: MarkMessagesAsRead :exec
+const markMessagesAsRead = `-- name: MarkMessagesAsRead :many
 UPDATE messages
 SET is_read = TRUE
 WHERE sender_id = $1 
   AND conversation_id = $2 
-  AND is_read = FALSE
+  AND is_read = FALSE RETURNING id
 `
 
 type MarkMessagesAsReadParams struct {
@@ -115,7 +115,22 @@ type MarkMessagesAsReadParams struct {
 }
 
 // Marks all messages sent FROM the contact TO the current user as read
-func (q *Queries) MarkMessagesAsRead(ctx context.Context, arg MarkMessagesAsReadParams) error {
-	_, err := q.db.Exec(ctx, markMessagesAsRead, arg.SenderID, arg.ConversationID)
-	return err
+func (q *Queries) MarkMessagesAsRead(ctx context.Context, arg MarkMessagesAsReadParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, markMessagesAsRead, arg.SenderID, arg.ConversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
