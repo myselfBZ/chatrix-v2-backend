@@ -49,7 +49,7 @@ type Storage struct {
 
 		GetByConversationID(ctx context.Context, arg queries.GetMessagesByConversationIDParams) ([]queries.Message, error)
 
-		MarkAsRead(ctx context.Context, arg queries.MarkMessagesAsReadParams) error
+		MarkAsRead(ctx context.Context, arg queries.MarkMessagesAsReadParams) ([]uuid.UUID, error)
 
 		// GetLast(ctx context.Context, userID uuid.UUID) ([]queries.Message, error)
 

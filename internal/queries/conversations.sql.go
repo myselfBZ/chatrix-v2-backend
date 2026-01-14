@@ -72,6 +72,7 @@ func (q *Queries) GetConversationByMembers(ctx context.Context, arg GetConversat
 
 const getConversationsByUserID = `-- name: GetConversationsByUserID :many
 SELECT 
+    conversations.id AS conversation_id,
     users.id, 
     users.last_seen, 
     users.username
@@ -88,9 +89,10 @@ WHERE
 `
 
 type GetConversationsByUserIDRow struct {
-	ID       uuid.UUID          `json:"id"`
-	LastSeen pgtype.Timestamptz `json:"last_seen"`
-	Username string             `json:"username"`
+	ConversationID uuid.UUID          `json:"conversation_id"`
+	ID             uuid.UUID          `json:"id"`
+	LastSeen       pgtype.Timestamptz `json:"last_seen"`
+	Username       string             `json:"username"`
 }
 
 func (q *Queries) GetConversationsByUserID(ctx context.Context, user1 uuid.UUID) ([]GetConversationsByUserIDRow, error) {
@@ -102,7 +104,12 @@ func (q *Queries) GetConversationsByUserID(ctx context.Context, user1 uuid.UUID)
 	var items []GetConversationsByUserIDRow
 	for rows.Next() {
 		var i GetConversationsByUserIDRow
-		if err := rows.Scan(&i.ID, &i.LastSeen, &i.Username); err != nil {
+		if err := rows.Scan(
+			&i.ConversationID,
+			&i.ID,
+			&i.LastSeen,
+			&i.Username,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
