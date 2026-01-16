@@ -170,7 +170,16 @@ func (a *api) createUserHandler(c echo.Context) error {
 
 	}
 
+	tokens, err := a.auth.GenerateTokenPair(dbUser.ID.String(), make(map[string]any))
 
-	return c.JSON(http.StatusOK, dbUser)
+	if err != nil {
+		a.internalErrLog(c.Request().Method, c.Path(), err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, tokenEnvelope{
+		User: &dbUser,
+		Token: tokens.AccessToken,
+	})
 }
 
