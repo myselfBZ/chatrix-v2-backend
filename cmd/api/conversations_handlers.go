@@ -10,6 +10,7 @@ import (
 )
 
 type createConversationPayload struct {
+	// User1 is the intiator
 	User1 string `json:"user1" validate:"required"`
 	User2 string `json:"user2" validate:"required"`
 }
@@ -19,6 +20,9 @@ type conversationResponse struct {
 	UserData queries.GetConversationsByUserIDRow `json:"user_data"`
 	UserIsOnline bool `json:"is_online"`
 }
+
+// WELL, WELL, we gotta fix this ASAP
+func (m *conversationResponse) message() {}
 
 
 func (a *api) getConversationsHandler(c echo.Context) error {
@@ -30,7 +34,6 @@ func (a *api) getConversationsHandler(c echo.Context) error {
 			a.notFoundLog(c.Request().Method, c.Path(), err)
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		default:
-			
 			a.internalErrLog(c.Request().Method, c.Path(), err)
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
@@ -50,6 +53,7 @@ func (a *api) getConversationsHandler(c echo.Context) error {
 }
 
 func (a *api) createConversationHandler(c echo.Context) error {
+	user := c.Get(userCtxValKey).(queries.User)
 	var payload createConversationPayload
 	if err := c.Bind(&payload); err != nil {
 		a.badRequestLog(c.Request().RequestURI, c.Path(), err)
@@ -83,7 +87,17 @@ func (a *api) createConversationHandler(c echo.Context) error {
 		}
 	}
 
-	go a.notifyConversationCreation(user2ValidID, conversation)
+	_, isOnline := a.clients.Load(user1ValidID.String())
+
+	go a.notifyConversationCreation(user2ValidID, conversationResponse{
+		UserData: queries.GetConversationsByUserIDRow{
+			ID: user1ValidID,
+			LastSeen: user.LastSeen,
+			ConversationID: conversation.ID,
+			Username: user.Username,
+		},
+		UserIsOnline: isOnline,
+	})
 
 	return c.JSON(http.StatusOK, conversation)
 }

@@ -113,7 +113,7 @@ func (a *api) serve() error {
 	e.POST("/auth/token", a.createTokenHandler)
 	e.POST("/auth/users", a.createUserHandler)
 	e.POST("/auth/refresh", a.refreshTokenHandler)
-
+	
 	e.GET("/protected", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
 			"Pass": "OK",
@@ -125,6 +125,7 @@ func (a *api) serve() error {
 	authenticatedRoutes.POST("/conversations", a.createConversationHandler)
 	authenticatedRoutes.GET("/conversations/mine", a.getConversationsHandler)
 	authenticatedRoutes.GET("/messages", a.getMessageHistoryHandler)
+	authenticatedRoutes.POST("/users/search", a.searchUserHandler)
 
 	return e.Start(fmt.Sprintf(":%d", a.port))
 }

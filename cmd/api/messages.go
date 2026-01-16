@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	CONVO_CREATED 	  = "CONVO_CREATED"
 	AKC_MSG_DELIVERED = "ACK_MSG_DELIVERED"
 	WELCOME           = "WELCOME"
 	ERR               = "ERR"
