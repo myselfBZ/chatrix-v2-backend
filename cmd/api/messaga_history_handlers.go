@@ -30,15 +30,27 @@ func (a *api) getMessageHistoryHandler(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		default:
 			a.internalErrLog(c.Request().Method, c.Path(), err)
-			return echo.NewHTTPError(http.StatusUnauthorized)
+			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 	}
 
 	msgs, err := a.storage.Messages.GetByConversationID(c.Request().Context(), queries.GetMessagesByConversationIDParams{
+		// TODO, fix the pagination
 		ConversationID: conversation.ID,
 		Offset: 0,
 		Limit: 100,
 	})
+
+	if err != nil {
+		switch err {
+		case store.ErrNotFound:
+			a.notFoundLog(c.Request().Method, c.Path(), err)
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		default:
+			a.internalErrLog(c.Request().Method, c.Path(), err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+	}
 
 	return c.JSON(http.StatusOK, msgs)
 }

@@ -7,6 +7,7 @@ SELECT * FROM users WHERE id = $1;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = $1;
 
+
 -- name: CreateUser :one
 INSERT INTO users (
     username,
@@ -27,9 +28,9 @@ VALUES (
 SELECT * FROM users;
 
 -- name: SearchUsers :many
-SELECT *
+SELECT id, username, last_seen
 FROM users 
-WHERE username ILIKE $1 || '%'
+WHERE username ILIKE $1 || '%' AND username != $2 -- self-username
 LIMIT 20;
 
 -- name: UpdateUserLastSeen :exec

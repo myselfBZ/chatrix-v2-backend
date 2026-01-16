@@ -27,7 +27,7 @@ type Storage struct {
 		GetByEmail(ctx context.Context, email string) (queries.User, error)
 
 		List(ctx context.Context) ([]queries.User, error)
-		Search(ctx context.Context, username string) ([]queries.User, error)
+		Search(ctx context.Context, selfUsername, targetUsername string) ([]queries.SearchUsersRow, error)
 
 		UpdateLastSeen(ctx context.Context, id uuid.UUID) error
 		// UpdatePassword(ctx context.Context, arg queries.UpdateUserPasswordParams) error

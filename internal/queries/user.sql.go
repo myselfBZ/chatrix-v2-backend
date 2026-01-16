@@ -135,29 +135,33 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const searchUsers = `-- name: SearchUsers :many
-SELECT id, username, email, password_hash, created_at, last_seen
+SELECT id, username, last_seen
 FROM users 
-WHERE username ILIKE $1 || '%'
+WHERE username ILIKE $1 || '%' AND username != $2 -- self-username
 LIMIT 20
 `
 
-func (q *Queries) SearchUsers(ctx context.Context, dollar_1 pgtype.Text) ([]User, error) {
-	rows, err := q.db.Query(ctx, searchUsers, dollar_1)
+type SearchUsersParams struct {
+	Column1  pgtype.Text `json:"column_1"`
+	Username string      `json:"username"`
+}
+
+type SearchUsersRow struct {
+	ID       uuid.UUID          `json:"id"`
+	Username string             `json:"username"`
+	LastSeen pgtype.Timestamptz `json:"last_seen"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, searchUsers, arg.Column1, arg.Username)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []SearchUsersRow
 	for rows.Next() {
-		var i User
-		if err := rows.Scan(
-			&i.ID,
-			&i.Username,
-			&i.Email,
-			&i.PasswordHash,
-			&i.CreatedAt,
-			&i.LastSeen,
-		); err != nil {
+		var i SearchUsersRow
+		if err := rows.Scan(&i.ID, &i.Username, &i.LastSeen); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

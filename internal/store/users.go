@@ -56,8 +56,12 @@ func (s *UserStore) List(ctx context.Context) ([]queries.User, error) {
 	return users, nil
 }
 
-func (s *UserStore) Search(ctx context.Context, username string) ([]queries.User, error) {
-	users, err := s.q.SearchUsers(ctx, pgtype.Text{ String: username, Valid: true })
+func (s *UserStore) Search(ctx context.Context, selfUsername,targetUsername string) ([]queries.SearchUsersRow, error) {
+	users, err := s.q.SearchUsers(ctx, queries.SearchUsersParams{
+		Column1: pgtype.Text{ String: targetUsername, Valid: true },
+		Username: selfUsername,
+	})
+
 	if err != nil {
 		return nil, mapError(err)
 	}

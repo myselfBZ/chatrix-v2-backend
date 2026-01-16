@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/myselfBZ/chatrix-v2/internal/queries"
 	"github.com/olahol/melody"
 )
+
+
 
 func (a *api) broadCastOfflineStatus(userID uuid.UUID) {
 	conversationUsers, err := a.storage.Conversations.GetByUserID(context.TODO(), userID)
@@ -68,15 +69,20 @@ func (a *api) broadcaseOnlineStatus(userID uuid.UUID) {
 	}
 }
 
-func (a *api) notifyConversationCreation(userID uuid.UUID, conversation queries.Conversation) {
+func (a *api) notifyConversationCreation(userID uuid.UUID, conversation conversationResponse){
 	sessionAny, isOnline := a.clients.Load(userID.String())
 
 	if !isOnline {
 		return
 	}
 	session := sessionAny.(*melody.Session)
-	conversationJson, _ := json.Marshal(conversation)
-	session.Write(conversationJson)
+	writeJSONMsg(
+		session,
+		Wrapper{
+			MsgType: CONVO_CREATED,
+			Message: &conversation,
+		},
+	)
 }
 
 
