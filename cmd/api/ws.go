@@ -80,6 +80,7 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 
 	var event IncomingEvent
 	if err := json.Unmarshal(msg, &event); err != nil {
+		a.logger.Error("couldn't Unmarshal Incoming event", err)
 		writeJSONErr(s, Err{
 			Reason: "invalid payload",
 			Code: http.StatusUnprocessableEntity,
@@ -96,6 +97,7 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 	case CHAT:
 		var payload ChatMsg
 		if err := json.Unmarshal(event.Message, &payload); err != nil {
+			a.logger.Error("couldn't Unmarshal ChatMsg event", err)
 			writeJSONErr(s, Err{
 				Reason: "invalid payload",
 				Code: http.StatusUnprocessableEntity,

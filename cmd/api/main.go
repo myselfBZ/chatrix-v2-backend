@@ -25,6 +25,9 @@ const (
 
 func newApi(port int) *api {
 	m := melody.New()
+	m.Upgrader.ReadBufferSize = 1024 * 10
+	m.Upgrader.WriteBufferSize = 1024 * 10
+	m.Config.MaxMessageSize = 1024 * 10
 	a := &api{
 		authConfig: authConfig{
 			accessSecret:  "something",
@@ -113,7 +116,7 @@ func (a *api) serve() error {
 	e.POST("/auth/token", a.createTokenHandler)
 	e.POST("/auth/users", a.createUserHandler)
 	e.POST("/auth/refresh", a.refreshTokenHandler)
-	
+
 	e.GET("/protected", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{
 			"Pass": "OK",
