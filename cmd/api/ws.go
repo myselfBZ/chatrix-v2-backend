@@ -118,6 +118,25 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 
 
 		a.handleMarkMsgRead(s, &payload)
+	case TYPING:
+		var payload Typing
+		if err := json.Unmarshal(event.Message, &payload); err != nil {
+			writeJSONErr(s, Err{
+				Reason: "invalid payload",
+				Code: http.StatusUnprocessableEntity,
+			})
+		}
+
+		a.handleTyping(s, &payload)
+	case STOPPED_TYPING:
+		var payload StoppedTyping
+		if err := json.Unmarshal(event.Message, &payload); err != nil {
+			writeJSONErr(s, Err{
+				Reason: "invalid payload",
+				Code: http.StatusUnprocessableEntity,
+			})
+		}
+		a.handleStoppedTyping(s, &payload)
 	}
 }
 
@@ -141,12 +160,11 @@ func (a *api) handleMarkMsgRead(s *melody.Session, msg *MarkMsgRead) {
 		return
 	}
 
-	sessoinAny, ok := a.clients.Load(ownerID.String())
+	session, ok := a.getSession(ownerID)
 	if !ok {
 		return
 	}
 
-	session := sessoinAny.(*melody.Session)
 
 	writeJSONMsg(session, Wrapper{
 		MsgType: MSG_READ,
@@ -210,15 +228,59 @@ func (a *api) handleChatMessage(s *melody.Session, msg *ChatMsg) {
 	msg.CreatedAt = dbMsg.CreatedAt.Time
 	msg.ID = dbMsg.ID
 
-	targetUser, ok := a.clients.Load(msg.To)
+	session, ok := a.getSession(toUUID)
+
 	if !ok {
 		return
 	}
 
-	session := targetUser.(*melody.Session)
-
 	writeJSONMsg(session, Wrapper{
 		MsgType: CHAT,
+		Message: msg,
+	})
+}
+
+func (a *api) handleStoppedTyping(s *melody.Session, msg *StoppedTyping) {
+	toUUID, err := uuid.Parse(msg.To)
+	if err != nil {
+		writeJSONErr(s, Err{
+			Reason: "invalid UUID",
+			Code: http.StatusUnprocessableEntity,
+		})
+		return
+	}
+
+	toSession, ok := a.getSession(toUUID)
+
+	if !ok {
+		return
+	}
+
+	writeJSONMsg(toSession, Wrapper{
+		MsgType: STOPPED_TYPING,
+		Message: msg,
+	})
+}
+
+
+func (a *api) handleTyping(s *melody.Session, msg *Typing) {
+	toUUID, err := uuid.Parse(msg.To)
+	if err != nil {
+		writeJSONErr(s, Err{
+			Reason: "invalid UUID",
+			Code: http.StatusUnprocessableEntity,
+		})
+		return
+	}
+
+	toSession, ok := a.getSession(toUUID)
+
+	if !ok {
+		return
+	}
+
+	writeJSONMsg(toSession, Wrapper{
+		MsgType: TYPING,
 		Message: msg,
 	})
 }
@@ -228,11 +290,6 @@ func (a *api) handleWebSocket(c echo.Context) error {
 	return nil
 }
 
-// TODO: anything in this file that's named authenticate* should be replaced
-// to authorize
-
-// Edit: 2026-01-11
-// well, maybe not
 func (a *api) authenticateSession(msg []byte) (queries.User, error) {
 	var payload authPayload
 	if err := json.Unmarshal(msg, &payload); err != nil {
@@ -293,4 +350,14 @@ func writeJSONErr(s *melody.Session, err Err) error {
 		MsgType: ERR,
 		Message: &err,
 	})
+}
+
+
+func (a *api) getSession(id uuid.UUID) (*melody.Session, bool) {
+	sessionAny, ok := a.clients.Load(id.String())
+	if !ok {
+		return nil, ok
+	}
+	session := sessionAny.(*melody.Session)
+	return session, ok
 }

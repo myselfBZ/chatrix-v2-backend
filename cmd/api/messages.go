@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	CONVO_CREATED 	  = "CONVO_CREATED"
+	CONVO_CREATED     = "CONVO_CREATED"
 	AKC_MSG_DELIVERED = "ACK_MSG_DELIVERED"
+	TYPING            = "TYPING"
+	STOPPED_TYPING    = "STOPPED_TYPING"
 	WELCOME           = "WELCOME"
 	ERR               = "ERR"
 	CHAT              = "CHAT"
@@ -113,3 +115,18 @@ type MsgRead struct {
 }
 
 func (m *MsgRead) message() {}
+
+type Typing struct {
+	To   string `json:"to"`
+	From string `json:"from"`
+}
+
+func (m *Typing) message() {}
+
+
+type StoppedTyping struct {
+	To   string `json:"to"`
+	From string `json:"from"`
+}
+
+func (m *StoppedTyping) message() {}
