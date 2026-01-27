@@ -33,7 +33,9 @@ func (a *api) handleDisconnect(s *melody.Session) {
 	userIDString := userID.(string)
 	a.clients.Delete(userIDString)
 	validUUID, _ := uuid.Parse(userIDString)
-	a.storage.Users.UpdateLastSeen(context.TODO(), validUUID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	a.storage.Users.UpdateLastSeen(ctx, validUUID)
 	a.broadCastOfflineStatus(validUUID)
 }
 
@@ -81,7 +83,7 @@ func (a *api) handleMessage(s *melody.Session, msg []byte) {
 	var event IncomingEvent
 	if err := json.Unmarshal(msg, &event); err != nil {
 		a.logger.Error("couldn't Unmarshal Incoming event", err)
-		writeJSONErr(s, Err{
+		writeJSONErr(s, &Err{
 			Reason: "invalid payload",
 			Code: http.StatusUnprocessableEntity,
 		})
@@ -98,7 +100,7 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 		var payload ChatMsg
 		if err := json.Unmarshal(event.Message, &payload); err != nil {
 			a.logger.Error("couldn't Unmarshal ChatMsg event", err)
-			writeJSONErr(s, Err{
+			writeJSONErr(s, &Err{
 				Reason: "invalid payload",
 				Code: http.StatusUnprocessableEntity,
 			})
@@ -110,7 +112,7 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 		var payload MarkMsgRead
 
 		if err := json.Unmarshal(event.Message, &payload); err != nil {
-			writeJSONErr(s, Err{
+			writeJSONErr(s, &Err{
 				Reason: "invalid payload",
 				Code: http.StatusUnprocessableEntity,
 			})
@@ -121,7 +123,7 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 	case TYPING:
 		var payload Typing
 		if err := json.Unmarshal(event.Message, &payload); err != nil {
-			writeJSONErr(s, Err{
+			writeJSONErr(s, &Err{
 				Reason: "invalid payload",
 				Code: http.StatusUnprocessableEntity,
 			})
@@ -131,7 +133,7 @@ func (a *api) mapIncomingEventToHandler(s *melody.Session, event *IncomingEvent)
 	case STOPPED_TYPING:
 		var payload StoppedTyping
 		if err := json.Unmarshal(event.Message, &payload); err != nil {
-			writeJSONErr(s, Err{
+			writeJSONErr(s, &Err{
 				Reason: "invalid payload",
 				Code: http.StatusUnprocessableEntity,
 			})
@@ -151,7 +153,9 @@ func (a *api) handleMarkMsgRead(s *melody.Session, msg *MarkMsgRead) {
 	if err != nil {
 		return
 	}
-	msgIds ,err := a.storage.Messages.MarkAsRead(context.TODO(), queries.MarkMessagesAsReadParams{
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	msgIds ,err := a.storage.Messages.MarkAsRead(ctx, queries.MarkMessagesAsReadParams{
 		ConversationID: conversationID,
 		SenderID: ownerID,
 	}) 
@@ -181,34 +185,37 @@ func (a *api) handleChatMessage(s *melody.Session, msg *ChatMsg) {
 	fromUUID, err := uuid.Parse(msg.From)
 
 	if err != nil {
-		// TODO: do something with the error
+		writeJSONErr(s, &MessageErr{
+			TempID: msg.TempID,
+			Reason: "invalid user UUID",
+		})
 		return
 	}
 
 	toUUID, err := uuid.Parse(msg.To)
 
 	if err != nil {
-		// TODO: do something with the error
-		writeJSONErr(s, Err{
+		writeJSONErr(s, &MessageErr{
 			Reason: "invalid UUID",
-			Code: http.StatusUnprocessableEntity,
+			TempID: msg.TempID,
 		})
 		return
 	}
 
-	dbMsg, err := a.storage.Messages.Create(context.TODO(), queries.CreateMessageParams{
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dbMsg, err := a.storage.Messages.Create(ctx, queries.CreateMessageParams{
 		SenderID: fromUUID,
 		User2:    toUUID,
 		Content:  msg.Content,
 	})
 
 	if err != nil {
-		// TODO
 		writeJSONErr(s, 
-			Err{
+			&MessageErr{
 				Reason: "message couldn't be created",
-				// this is not suitable..... but uhm it is okay
-				Code: http.StatusBadRequest,
+				TempID: msg.TempID,
 			},
 		)
 		return
@@ -243,7 +250,7 @@ func (a *api) handleChatMessage(s *melody.Session, msg *ChatMsg) {
 func (a *api) handleStoppedTyping(s *melody.Session, msg *StoppedTyping) {
 	toUUID, err := uuid.Parse(msg.To)
 	if err != nil {
-		writeJSONErr(s, Err{
+		writeJSONErr(s, &Err{
 			Reason: "invalid UUID",
 			Code: http.StatusUnprocessableEntity,
 		})
@@ -266,7 +273,7 @@ func (a *api) handleStoppedTyping(s *melody.Session, msg *StoppedTyping) {
 func (a *api) handleTyping(s *melody.Session, msg *Typing) {
 	toUUID, err := uuid.Parse(msg.To)
 	if err != nil {
-		writeJSONErr(s, Err{
+		writeJSONErr(s, &Err{
 			Reason: "invalid UUID",
 			Code: http.StatusUnprocessableEntity,
 		})
@@ -319,8 +326,9 @@ func (a *api) authenticateSession(msg []byte) (queries.User, error) {
 		return queries.User{}, err
 	}
 
-	// TODO fix this context
-	user, err := a.storage.Users.GetByID(context.TODO(), validUUID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user, err := a.storage.Users.GetByID(ctx, validUUID)
 
 	if err != nil {
 		return queries.User{}, err
@@ -345,10 +353,10 @@ func writeJSONMsg(s *melody.Session, payload Wrapper) error {
 	return s.Write(jsonData)
 }
 
-func writeJSONErr(s *melody.Session, err Err) error {
+func writeJSONErr(s *melody.Session, err Message) error {
 	return writeJSONMsg(s, Wrapper{
 		MsgType: ERR,
-		Message: &err,
+		Message: err,
 	})
 }
 

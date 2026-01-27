@@ -20,6 +20,8 @@ const (
 	MARK_READ         = "MARK_READ"
 	MSG_READ          = "MSG_READ"
 	CLIENT_CONN       = "CLIENT_CONN"
+
+	MESSAGE_ERR = "MESSAGE_ERR"
 )
 
 type IncomingEvent struct {
@@ -123,10 +125,16 @@ type Typing struct {
 
 func (m *Typing) message() {}
 
-
 type StoppedTyping struct {
 	To   string `json:"to"`
 	From string `json:"from"`
 }
 
 func (m *StoppedTyping) message() {}
+
+type MessageErr struct {
+	TempID string `json:"temp_id"`
+	Reason string `json:"reason"`
+}
+
+func (m *MessageErr) message() {}
