@@ -12,10 +12,13 @@ import (
 
 
 func (a *api) broadCastOfflineStatus(userID uuid.UUID) {
-	conversationUsers, err := a.storage.Conversations.GetByUserID(context.TODO(), userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conversationUsers, err := a.storage.Conversations.GetByUserID(ctx, userID)
 
 	if err != nil {
-		// TODO: do something with the error
+		// TODO, HANDEL YOUR ERRORS
 		return
 	}
 
@@ -42,10 +45,12 @@ func (a *api) broadCastOfflineStatus(userID uuid.UUID) {
 
 
 func (a *api) broadcaseOnlineStatus(userID uuid.UUID) {
-	conversationUsers, err := a.storage.Conversations.GetByUserID(context.TODO(), userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+	conversationUsers, err := a.storage.Conversations.GetByUserID(ctx, userID)
 
 	if err != nil {
-		// TODO: do something with the error
+		// TODO do handler your ERRORS
 		return
 	}
 
