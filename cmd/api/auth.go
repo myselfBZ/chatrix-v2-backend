@@ -13,7 +13,7 @@ import (
 
 type authConfig struct {
 	accessSecret, refreshSecret string
-	aud                        string
+	aud                         string
 	iss                         string
 }
 
@@ -30,7 +30,7 @@ type userPayload struct {
 
 type tokenEnvelope struct {
 	User  *queries.User `json:"user"`
-	Token string      `json:"access_token"`
+	Token string        `json:"access_token"`
 }
 
 func (a *api) refreshTokenHandler(c echo.Context) error {
@@ -56,7 +56,7 @@ func (a *api) refreshTokenHandler(c echo.Context) error {
 	}
 
 	validUUID, err := uuid.Parse(userID)
-	
+
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid uuid")
 	}
@@ -118,8 +118,10 @@ func (a *api) createTokenHandler(c echo.Context) error {
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
 		Path:     "/",
+		// Try getting rid of it.
+		Domain:   "localhost",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days
 	})
@@ -178,8 +180,7 @@ func (a *api) createUserHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tokenEnvelope{
-		User: &dbUser,
+		User:  &dbUser,
 		Token: tokens.AccessToken,
 	})
 }
-

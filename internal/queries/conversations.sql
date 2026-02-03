@@ -1,19 +1,25 @@
 -- name: GetConversationsByUserID :many
 SELECT 
-    conversations.id AS conversation_id,
-    users.id, 
-    users.last_seen, 
-    users.username
+    c.id AS conversation_id,
+    u.id, 
+    u.last_seen, 
+    u.username,
+    (
+        SELECT COUNT(m.id) 
+        FROM messages m 
+        WHERE m.is_read = FALSE 
+          AND m.conversation_id = c.id
+          AND m.sender_id != $1 
+    ) AS unread_msg_count
 FROM 
-    conversations 
+    conversations c
 JOIN 
-    users 
-    ON users.id IN (conversations.user1, conversations.user2)
+    users u 
+    ON u.id IN (c.user1, c.user2)
 WHERE 
-    -- 1. Ensure the conversation belongs to you
-    (conversations.user1 = $1 OR conversations.user2 = $1)
-    -- 2. CRITICAL: Filter out your own user record from the final list
-    AND users.id != $1;
+    (c.user1 = $1 OR c.user2 = $1)
+    AND u.id != $1;
+
 
 -- name: GetConversationByMembers :one
 SELECT * FROM conversations WHERE (user1 = $1 AND user2 = $2) OR (user1 = $2 AND user2 = $1);
