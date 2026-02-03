@@ -38,7 +38,7 @@ func (a *api) getMessageHistoryHandler(c echo.Context) error {
 		// TODO, fix the pagination
 		ConversationID: conversation.ID,
 		Offset: 0,
-		Limit: 300,
+		Limit: 1000,
 	})
 
 	if err != nil {
